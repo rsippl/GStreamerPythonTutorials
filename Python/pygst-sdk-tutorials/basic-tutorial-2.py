@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
-# -*- coding:utf-8 -*-
-# GStreamer SDK Tutorials in Python
-#
-#     basic-tutorial-2
-#
 """
 basic-tutorial-2: GStreamer concepts
-http://docs.gstreamer.com/display/GstSDK/Basic+tutorial+2%3A+GStreamer+concepts
+https://gstreamer.freedesktop.org/documentation/tutorials/basic/concepts.html
 """
 
 import sys
 from gi.repository import Gst
+
 Gst.init(None)
 
 # Create the elements
@@ -43,15 +39,17 @@ if ret == Gst.StateChangeReturn.FAILURE:
 # Wait until error or EOS
 bus = pipeline.get_bus()
 msg = bus.timed_pop_filtered(
-    Gst.CLOCK_TIME_NONE, Gst.MessageType.ERROR | Gst.MessageType.EOS)
+    Gst.CLOCK_TIME_NONE,
+    Gst.MessageType.ERROR | Gst.MessageType.EOS
+)
 
 # Parse message
-if (msg):
+if msg:
     if msg.type == Gst.MessageType.ERROR:
-        err, debug = msg.parse_error()
+        err, debug_info = msg.parse_error()
         print("Error received from element %s: %s" % (
             msg.src.get_name(), err), file=sys.stderr)
-        print("Debugging information: %s" % debug, file=sys.stderr)
+        print("Debugging information: %s" % debug_info, file=sys.stderr)
     elif msg.type == Gst.MessageType.EOS:
         print("End-Of-Stream reached.")
     else:

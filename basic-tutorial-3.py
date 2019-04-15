@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-basic-tutorial-3: Dynamic pipelines
+Basic tutorial 3: Dynamic pipelines
 https://gstreamer.freedesktop.org/documentation/tutorials/basic/dynamic-pipelines.html
 """
 
@@ -11,7 +11,77 @@ import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst
 
-Gst.init(None)
+
+def main():
+    Gst.init(None)
+
+    # Create the elements
+    source = Gst.ElementFactory.make("uridecodebin", "source")
+    convert = Gst.ElementFactory.make("audioconvert", "convert")
+    sink = Gst.ElementFactory.make("autoaudiosink", "sink")
+
+    # Create the empty pipeline
+    pipeline = Gst.Pipeline.new("test-pipeline")
+
+    if not source or not convert or not sink or not pipeline:
+        print("Not all elements could be created.", file=sys.stderr)
+        exit(-1)
+
+    # Build the pipeline
+    # Note that we are NOT linking the source at this point. We will do it later.
+    pipeline.add(source)
+    pipeline.add(convert)
+    pipeline.add(sink)
+
+    if not Gst.Element.link(convert, sink):
+        print("Elements could not be linked.", file=sys.stderr)
+        exit(-1)
+
+    # Set the URI to play
+    source.set_property(
+        "uri",
+        "https://www.freedesktop.org/software/gstreamer-sdk/data/media/sintel_trailer-480p.webm"
+    )
+
+    # Connect to the pad-added signal
+    source.connect("pad-added", pad_added_handler, convert)
+
+    # Start playing
+    ret = pipeline.set_state(Gst.State.PLAYING)
+    if ret == Gst.StateChangeReturn.FAILURE:
+        print("Unable to set the pipeline to the playing state.", file=sys.stderr)
+        exit(-1)
+
+    # Wait until error or EOS
+    bus = pipeline.get_bus()
+
+    # Parse message
+    while True:
+        message = bus.timed_pop_filtered(
+            Gst.CLOCK_TIME_NONE,
+            Gst.MessageType.STATE_CHANGED |
+            Gst.MessageType.ERROR |
+            Gst.MessageType.EOS
+        )
+        if message.type == Gst.MessageType.ERROR:
+            err, debug_info = message.parse_error()
+            print("Error received from element %s: %s" % (
+                message.src.get_name(), err), file=sys.stderr)
+            print("Debugging information: %s" % debug_info, file=sys.stderr)
+            break
+        elif message.type == Gst.MessageType.EOS:
+            print("End-Of-Stream reached.")
+            break
+        elif message.type == Gst.MessageType.STATE_CHANGED:
+            if message.src == pipeline:
+                old_state, new_state, pending_state = message.parse_state_changed()
+                print("Pipeline state changed from %s to %s." %
+                      (old_state.value_nick, new_state.value_nick))
+        else:
+            print("Unexpected message received.", file=sys.stderr)
+
+    # Free resources
+    pipeline.set_state(Gst.State.NULL)
 
 
 # Handler for the pad-added signal
@@ -47,70 +117,5 @@ def pad_added_handler(src, new_pad, data):
         print("Link succeeded (type '%s')." % new_pad_type)
 
 
-# Create the elements
-source = Gst.ElementFactory.make("uridecodebin", "source")
-convert = Gst.ElementFactory.make("audioconvert", "convert")
-sink = Gst.ElementFactory.make("autoaudiosink", "sink")
-
-# Create the empty pipeline
-pipeline = Gst.Pipeline.new("test-pipeline")
-
-if not source or not convert or not sink or not pipeline:
-    print("Not all elements could be created.", file=sys.stderr)
-    exit(-1)
-
-# Build the pipeline
-# Note that we are NOT linking the source at this point. We will do it later.
-pipeline.add(source)
-pipeline.add(convert)
-pipeline.add(sink)
-
-if not Gst.Element.link(convert, sink):
-    print("Elements could not be linked.", file=sys.stderr)
-    exit(-1)
-
-# Set the URI to play
-source.set_property(
-    "uri",
-    "https://www.freedesktop.org/software/gstreamer-sdk/data/media/sintel_trailer-480p.webm"
-)
-
-# Connect to the pad-added signal
-source.connect("pad-added", pad_added_handler, convert)
-
-# Start playing
-ret = pipeline.set_state(Gst.State.PLAYING)
-if ret == Gst.StateChangeReturn.FAILURE:
-    print("Unable to set the pipeline to the playing state.", file=sys.stderr)
-    exit(-1)
-
-# Wait until error or EOS
-bus = pipeline.get_bus()
-
-# Parse message
-while True:
-    message = bus.timed_pop_filtered(
-        Gst.CLOCK_TIME_NONE,
-        Gst.MessageType.STATE_CHANGED |
-        Gst.MessageType.ERROR |
-        Gst.MessageType.EOS
-    )
-    if message.type == Gst.MessageType.ERROR:
-        err, debug_info = message.parse_error()
-        print("Error received from element %s: %s" % (
-            message.src.get_name(), err), file=sys.stderr)
-        print("Debugging information: %s" % debug_info, file=sys.stderr)
-        break
-    elif message.type == Gst.MessageType.EOS:
-        print("End-Of-Stream reached.")
-        break
-    elif message.type == Gst.MessageType.STATE_CHANGED:
-        if message.src == pipeline:
-            old_state, new_state, pending_state = message.parse_state_changed()
-            print("Pipeline state changed from %s to %s." %
-                  (old_state.value_nick, new_state.value_nick))
-    else:
-        print("Unexpected message received.", file=sys.stderr)
-
-# Free resources
-pipeline.set_state(Gst.State.NULL)
+if __name__ == '__main__':
+    main()

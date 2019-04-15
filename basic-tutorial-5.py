@@ -30,21 +30,12 @@ class CustomData:
 # and pass it to GStreamer through the XOverlay interface.
 def realize_cb(widget, data):
     window = widget.get_window()
+    # TODO this works on Linux only!
+    # see https://gitlab.gnome.org/GNOME/pygobject/issues/112
     window_handle = window.get_xid()
 
     # Pass it to playbin, which implements VideoOverlay and will forward it to the video sink
     data.playbin.set_window_handle(window_handle)
-
-
-def sync_cb(bus, message, data):
-    structure = message.get_structure()
-    if structure is None:
-        return
-    if structure.get_name() == 'prepare-window-handle':
-        imagesink = message.src
-        window = data.video_window.get_property('window')
-        xid = window.get_xid()  # TODO Mac, Windows
-        imagesink.set_window_handle(xid)
 
 
 # This function is called when the PLAY button is clicked
@@ -93,11 +84,10 @@ def slider_cb(range, data):
 
 # This creates all the GTK+ widgets that compose our application, and registers the callbacks
 def create_ui(data):
-    main_window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+    main_window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
     main_window.connect("delete-event", delete_event_cb, data)
 
     video_window = Gtk.DrawingArea()
-    video_window.set_double_buffered(False)
     video_window.connect("realize", realize_cb, data)
     video_window.connect("draw", draw_cb, data)
 
@@ -117,17 +107,17 @@ def create_ui(data):
     data.streams_list = Gtk.TextView()
     data.streams_list.set_editable(False)
 
-    controls = Gtk.HBox(False, 0)
+    controls = Gtk.HBox(homogeneous=False, spacing=0)
     controls.pack_start(play_button, False, False, 2)
     controls.pack_start(pause_button, False, False, 2)
     controls.pack_start(stop_button, False, False, 2)
     controls.pack_start(data.slider, True, True, 2)
 
-    main_hbox = Gtk.HBox(False, 0);
+    main_hbox = Gtk.HBox(homogeneous=False, spacing=0);
     main_hbox.pack_start(video_window, True, True, 0)
     main_hbox.pack_start(data.streams_list, False, False, 2)
 
-    main_box = Gtk.VBox(False, 0)
+    main_box = Gtk.VBox(homogeneous=False, spacing=0)
     main_box.pack_start(main_hbox, True, True, 0)
     main_box.pack_start(controls, False, False, 0)
     main_window.add(main_box)
